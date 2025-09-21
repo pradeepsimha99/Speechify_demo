@@ -1,45 +1,45 @@
-/**
- * A Least Recently Used (LRU) cache with Time-to-Live (TTL) support. Items are kept in the cache until they either
- * reach their TTL or the cache reaches its size and/or item limit. When the limit is exceeded, the cache evicts the
- * item that was least recently accessed (based on the timestamp of access). Items are also automatically evicted if they
- * are expired, as determined by the TTL.
- * An item is considered accessed, and its last accessed timestamp is updated, whenever `has`, `get`, or `set` is called with its key.
- *
- * Implement the LRU cache provider here and use the lru-cache.test.ts to check your implementation.
- * You're encouraged to add additional functions that make working with the cache easier for consumers.
- */
-
-type LRUCacheProviderOptions = {
-  ttl: number; // Time to live in milliseconds
-  itemLimit: number;
+type LRUCacheOptions = {
+  ttl: number;       // time-to-live in ms
+  itemLimit: number; // max number of items
 };
-type LRUCacheProvider<T> = {
+
+type LRUCache<T> = {
   has: (key: string) => boolean;
   get: (key: string) => T | undefined;
   set: (key: string, value: T) => void;
+  delete: (key: string) => void;
 };
 
-// Assume it's already implemented correctly and directly consume the lru-cache.ts implementation
-export function createLRUCacheProvider<T>({
-  ttl,
-  itemLimit,
-}: LRUCacheProviderOptions): LRUCacheProvider<T> {
-  return {
-    has: (key: string) => {
-      return false;
-    },
-    get: (key: string) => {
-      return undefined;
-    },
-    set: (key: string, value: T) => {
-      return;
-    },
-  };
-}
+export function createLRUCache<T>({ ttl, itemLimit }: LRUCacheOptions): LRUCache<T> {
+  const cache = new Map<string, { value: T; expiry: number }>();
 
-// Example usage:
-const cache = createLRUCacheProvider({ ttl: 100000, itemLimit: 10 });
-cache.set("foo", "bar");
-console.log(cache.get("foo")); // "bar"
-console.log(cache.has("foo")); // true
-console.log(cache.get("baz")); // undefined
+  const has = (key: string): boolean => {
+    const item = cache.get(key);
+    if (!item || Date.now() > item.expiry) {
+      cache.delete(key);
+      return false;
+    }
+    return true;
+  };
+
+  const get = (key: string): T | undefined => (has(key) ? cache.get(key)?.value : undefined);
+
+  const set = (key: string, value: T): void => {
+    if (cache.size >= itemLimit) {
+      const oldest = cache.keys().next();
+      if (!oldest.done) {
+        cache.delete(oldest.value);
+      }
+    }
+    if (cache.has(key)) {
+      cache.delete(key); // refresh order
+    }
+    cache.set(key, { value, expiry: Date.now() + ttl });
+  };
+
+  const remove = (key: string): void => {
+    cache.delete(key);
+  };
+
+  return { has, get, set, delete: remove };
+}

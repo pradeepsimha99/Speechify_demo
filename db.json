@@ -11,6 +11,10 @@
     {
       "id": "eyn4ZBhZgIBRhvEcYGYyj",
       "name": "Client"
+    },
+    {
+      "id": "c1",
+      "name": "Test Client"
     }
   ],
   "users": [
@@ -38,6 +42,19 @@
       "surname": "Smith",
       "hasCreditLimit": true,
       "creditLimit": 20000
+    },
+    {
+      "id": "hp4EOHNuY7REOo2-m2Hxi",
+      "client": {
+        "id": "c1",
+        "name": "Test Client"
+      },
+      "dateOfBirth": "1990-01-31T18:30:00.000Z",
+      "email": "alice@example.com",
+      "firstname": "Alice",
+      "surname": "Doe",
+      "hasCreditLimit": false,
+      "creditLimit": 0
     }
   ]
 }

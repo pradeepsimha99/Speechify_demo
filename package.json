@@ -7,7 +7,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "vitest run",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "test:watch": "vitest watch"
   },
   "keywords": [],
@@ -18,8 +18,13 @@
     "nanoid": "^5.0.4"
   },
   "devDependencies": {
-    "tsx": "^4.19.2",
-    "typescript": "^5.3.3",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.5.2",
+    "jest": "^30.1.3",
+    "ts-jest": "^29.4.4",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
     "vitest": "^2.1.8"
   }
 }

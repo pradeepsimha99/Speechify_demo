@@ -1,4 +1,5 @@
 import { Client } from "./client.js";
+
 export interface User {
   id: string;
   client: Client;

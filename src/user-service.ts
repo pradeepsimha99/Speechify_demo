@@ -1,136 +1,96 @@
-import { JSONFilePreset } from "lowdb/node";
+import { getDb } from "./db.js";
 import { nanoid } from "nanoid";
 import { ClientRepository } from "./client-repository.js";
-import { Client } from "./client.js";
 import { User } from "./user.js";
+import { createLRUCache } from "./lru-cache.js";
+
+// Cache for users
+const userCache = createLRUCache<User>({ ttl: 60_000, itemLimit: 200 });
 
 export class UserService {
-  public async AddUser(
+  private clientRepo = new ClientRepository();
+
+  async addUser(
     firstname: string,
     surname: string,
     email: string,
     dateOfBirth: Date,
     clientId: string
   ): Promise<boolean> {
-    const db = await JSONFilePreset("db.json", {
-      clients: [] as Client[],
-      users: [] as User[],
-    });
+    if (!firstname || !surname || !email) return false;
 
-    if (!firstname || !surname) {
-      return false;
-    }
-    if (!email) {
-      return false;
-    }
+    const db = await getDb();
+    if (db.data.users.find(u => u.email === email)) return false;
 
-    const users = db.data.users as User[];
-    let u: User | null = null;
-    for (let i = 0; i < users.length; i++) {
-      if (users[i].email === email) {
-        u = users[i];
-        break;
-      }
-    }
-    if (u) {
-      return false;
-    }
+    const client = await this.clientRepo.getById(clientId);
+    if (!client) return false;
 
-    const now = new Date();
-    let age = now.getFullYear() - dateOfBirth.getFullYear();
+    if (this.getAge(dateOfBirth) < 18) return false;
 
+    const user: User = {
+      id: nanoid(),
+      client,
+      dateOfBirth,
+      email,
+      firstname,
+      surname,
+      hasCreditLimit: false,
+      creditLimit: 0,
+    };
+
+    db.data.users.push(user);
+    await db.write();
+
+    userCache.set(user.id, user);
+    return true;
+  }
+
+  async getUserById(id: string): Promise<User | null> {
+    if (userCache.has(id)) return userCache.get(id)!;
+
+    const db = await getDb();
+    const user = db.data.users.find(u => u.id === id) || null;
+
+    if (user) userCache.set(id, user);
+    return user;
+  }
+
+  async updateUser(user: User): Promise<boolean> {
+    const db = await getDb();
+    const index = db.data.users.findIndex(u => u.id === user.id);
+
+    if (index === -1) return false;
+
+    db.data.users[index] = user;
+    await db.write();
+    userCache.set(user.id, user);
+
+    return true;
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    const db = await getDb();
+    const before = db.data.users.length;
+
+    db.data.users = db.data.users.filter(u => u.id !== id);
+    await db.write();
+
+    if (db.data.users.length < before) {
+      userCache.delete(id);
+      return true;
+    }
+    return false;
+  }
+
+  private getAge(dob: Date): number {
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
     if (
-      now.getMonth() < dateOfBirth.getMonth() ||
-      (now.getMonth() === dateOfBirth.getMonth() && now.getDate() < dateOfBirth.getDate())
+      today.getMonth() < dob.getMonth() ||
+      (today.getMonth() === dob.getMonth() && today.getDate() < dob.getDate())
     ) {
       age--;
     }
-
-    if (age < 21) {
-      return false;
-    }
-
-    const clientRepository = new ClientRepository();
-    const client = await clientRepository.getById(clientId);
-    if (!client) {
-      console.error("Client not found");
-      return false;
-    }
-    let user: Partial<User> = {
-      id: nanoid(),
-      client: client,
-      dateOfBirth: dateOfBirth,
-      email: email,
-      firstname: firstname,
-      surname: surname,
-    };
-
-    if (client.name == "VeryImportantClient") {
-      // Skip credit check
-      user.hasCreditLimit = false;
-    } else if (client.name == "ImportantClient") {
-      // Do credit check and double credit limit
-      user.hasCreditLimit = true;
-      user.creditLimit = 10000 * 2;
-    } else {
-      user.hasCreditLimit = true;
-      user.creditLimit = 10000;
-    }
-
-    db.data.users.push(user as User);
-    await db.write();
-
-    return true;
-  }
-
-  public async UpdateUser(user: User): Promise<boolean> {
-    if (!user) {
-      return false;
-    }
-    const db = await JSONFilePreset("db.json", {
-      clients: [] as Client[],
-      users: [] as User[],
-    });
-    const users = db.data.users as User[];
-    let u: User | null = null;
-    for (let i = 0; i < users.length; i++) {
-      if (users[i].id === user.id) {
-        u = users[i];
-        break;
-      }
-    }
-    if (!u) {
-      return false;
-    }
-    u = user;
-    await db.write();
-    return true;
-  }
-
-  public async GetAllUsers(): Promise<User[]> {
-    const db = await JSONFilePreset("db.json", {
-      clients: [] as Client[],
-      users: [] as User[],
-    });
-    return db.data.users as User[];
-  }
-
-  public async GetUserByEmail(email: string): Promise<User | null> {
-    const db = await JSONFilePreset("db.json", {
-      clients: [] as Client[],
-      users: [] as User[],
-    });
-    const users = db.data.users as User[];
-    let u: User | null = null;
-    for (let i = 0; i < users.length; i++) {
-      if (users[i].email === email) {
-        u = users[i];
-        break;
-      }
-    }
-    if (!u) {
-      return null;
-    }
-    return u;
+    return age;
   }
 }
