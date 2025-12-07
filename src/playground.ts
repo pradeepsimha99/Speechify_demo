@@ -1,4 +1,4 @@
-import { UserService } from "./user-service.js";
+import { UserService } from "./domain/services/user-service.js";
 import { ClientRepository } from "./client-repository.js";
 
 const run = async () => {

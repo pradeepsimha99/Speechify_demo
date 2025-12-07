@@ -2,12 +2,11 @@
   "name": "speechify-platform-live-coding",
   "version": "1.0.0",
   "description": "",
-  "type": "module",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "test":  "jest",
     "test:watch": "vitest watch"
   },
   "keywords": [],
